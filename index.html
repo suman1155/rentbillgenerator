@@ -1,0 +1,619 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="description" content="Single-file rent bill generator">
+  <title>Rent Bill Generator</title>
+  <style>
+    :root {
+      --blue: #006fbd;
+      --blue-dark: #005c9c;
+      --line: #1d5c98;
+      --pale-blue: #dfe8f6;
+      --yellow: #fff500;
+      --ink: #111827;
+      --paper: #fff;
+      --shell: #eef3f8;
+      box-sizing: border-box;
+    }
+ 
+    * { box-sizing: border-box; }
+    html { background: var(--shell); }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: var(--shell);
+      font-family: Arial, Helvetica, sans-serif;
+      font-size: 14px;
+      line-height: 1.35;
+    }
+ 
+    .app-shell {
+      width: min(1420px, calc(100% - 32px));
+      margin: 24px auto 48px;
+      display: grid;
+      grid-template-columns: minmax(285px, 365px) minmax(0, 1fr);
+      gap: 24px;
+      align-items: start;
+    }
+ 
+    .control-panel {
+      position: sticky;
+      top: 18px;
+      padding: 22px;
+      background: #fff;
+      border: 1px solid #d8e1eb;
+      border-radius: 14px;
+      box-shadow: 0 12px 30px rgba(29, 55, 82, .10);
+    }
+ 
+    .panel-heading { margin: 0 0 4px; font-size: 22px; color: var(--blue-dark); }
+    .panel-subtitle { margin: 0 0 20px; color: #526476; font-size: 13px; }
+    .form-section { padding: 15px 0; border-top: 1px solid #e1e8f0; }
+    .form-section:first-of-type { border-top: 0; padding-top: 0; }
+    .form-section h2 {
+      margin: 0 0 10px;
+      font-size: 13px;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      color: var(--blue-dark);
+    }
+    .field { display: grid; gap: 5px; margin: 0 0 10px; }
+    .field label { font-size: 12px; font-weight: 700; color: #3a4c60; }
+    .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    input, select, textarea, button { font: inherit; }
+    input, select, textarea {
+      width: 100%;
+      padding: 9px 10px;
+      color: #182737;
+      background: #fff;
+      border: 1px solid #b9c8d7;
+      border-radius: 6px;
+    }
+    textarea { min-height: 57px; resize: vertical; }
+    input:focus, select:focus, textarea:focus { outline: 3px solid rgba(0, 111, 189, .18); border-color: var(--blue); }
+    .hint { margin: -3px 0 9px; font-size: 11px; color: #66788a; }
+    .actions { display: grid; gap: 9px; margin-top: 4px; }
+    button {
+      min-height: 42px;
+      padding: 10px 15px;
+      cursor: pointer;
+      border: 1px solid var(--blue-dark);
+      border-radius: 7px;
+      color: #fff;
+      background: var(--blue);
+      font-weight: 700;
+    }
+    button:hover { background: var(--blue-dark); }
+    button.secondary { color: var(--blue-dark); background: #fff; }
+    button.secondary:hover { background: #eef7ff; }
+    button.danger { color: #9c2b00; background: #fff; border-color: #c94a1c; }
+    button.danger:hover { background: #fff2ec; }
+    .sequence-note { margin: 13px 0 0; font-size: 12px; color: #506276; }
+    .sequence-note strong { color: var(--blue-dark); }
+ 
+    .preview-wrap { min-width: 0; }
+    .preview-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0 0 10px; }
+    .preview-heading h1 { margin: 0; font-size: 20px; color: #30465c; }
+    .draft-badge { padding: 4px 9px; border-radius: 99px; color: #36627e; background: #dfeefa; font-size: 12px; font-weight: 700; }
+ 
+    .bill-sheet {
+      width: 210mm;
+      height: 297mm;
+      margin: 0 auto;
+      padding: 12mm 12mm 16mm;
+      color: #000;
+      background: var(--paper);
+      box-shadow: 0 12px 32px rgba(23, 48, 73, .17);
+      font-size: 10px;
+    }
+    .bill {
+      position: relative;
+      border: 2px solid var(--blue-dark);
+      border-bottom-width: 4px;
+      outline: 3px solid #d6ad00;
+      outline-offset: 4px;
+      box-shadow: 0 0 0 7px var(--blue), 0 0 0 9px #f0ca25;
+    }
+    .bill::before {
+      content: '';
+      position: absolute;
+      z-index: 5;
+      inset: 5px;
+      pointer-events: none;
+      border: 1px solid rgba(214, 173, 0, .88);
+    }
+    .bill::after {
+      content: '◆';
+      position: absolute;
+      z-index: 6;
+      top: -11px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 0 7px;
+      color: #d6ad00;
+      background: #fff;
+      font-size: 13px;
+      line-height: 18px;
+    }
+    .bill-title {
+      height: 26px;
+      display: grid;
+      place-items: center;
+      color: #006cb8;
+      font-size: 12px;
+      font-weight: 700;
+      text-decoration: underline;
+    }
+    .bill-grid { display: grid; grid-template-columns: 53.5% 46.5%; }
+    .cell { min-width: 0; border-top: 1px solid var(--line); }
+    .cell + .cell { border-left: 1px solid var(--line); }
+    .receiver { min-height: 96px; padding: 5px 10px 6px; }
+    .receiver-name {
+      min-height: 20px;
+      margin: -5px -10px 5px;
+      padding: 4px 10px;
+      background: linear-gradient(to right, var(--yellow) 0 82%, transparent 82%);
+      color: #005ca8;
+      font-weight: 700;
+    }
+    .field-line { display: flex; gap: 5px; min-height: 16px; }
+    .field-label { color: #0063aa; font-weight: 700; white-space: nowrap; }
+    .preview-value { min-width: 0; overflow-wrap: anywhere; }
+    .address-line { min-height: 30px; }
+    .blank-line { display: inline-block; min-width: 50px; border-bottom: 1px dotted #41678d; }
+    .receiver-contact { margin-top: 4px; display: grid; grid-template-columns: 1fr 1fr; gap: 2px 12px; }
+    .receiver-contact .email-line { grid-column: 1 / -1; padding-right: 38px; background: linear-gradient(to right, var(--yellow) 0 75%, transparent 75%); }
+    .receiver-contact .gstin-line { grid-column: 1 / -1; }
+    .bill-meta { display: grid; grid-template-rows: 25px 1fr; }
+    .bill-meta-head { display: grid; grid-template-columns: 1fr 1fr; color: white; background: var(--blue); font-weight: 700; text-align: center; }
+    .bill-meta-head span { padding-top: 5px; }
+    .bill-meta-data { display: grid; grid-template-columns: 1fr 1fr; min-height: 22px; text-align: center; background: var(--yellow); font-weight: 700; }
+    .bill-meta-data span { padding-top: 4px; }
+ 
+    .party-area { min-height: 159px; }
+    .party-cell { padding: 0 10px 8px; }
+    .bar-title {
+      display: block;
+      margin: 0 -10px 5px;
+      padding: 2px 10px;
+      color: #fff;
+      background: linear-gradient(to right, var(--blue) 0 82%, transparent 82%);
+      font-size: 10px;
+      font-weight: 700;
+    }
+    .party-name { margin-bottom: 7px; font-size: 9px; font-weight: 700; }
+    .party-copy { margin: 4px 0; line-height: 1.32; }
+    .property-title { background: var(--blue); }
+    .wide-blank { min-height: 74px; padding: 2px 0; white-space: pre-wrap; }
+    .property-address { min-height: 58px; padding: 3px 0 3px; border-bottom: 1px dotted #668db3; white-space: pre-wrap; }
+ 
+    .service-header, .service-row { display: grid; grid-template-columns: 53.5% 9.5% 13.5% 13.5% 10%; }
+    .service-header { color: #fff; background: var(--blue); font-weight: 700; text-align: center; }
+    .service-header > div { min-height: 21px; padding: 4px 3px; border-left: 1px solid #fff; }
+    .service-header > div:first-child { border-left: 0; }
+    .service-row { min-height: 76px; }
+    .service-row > div { padding: 4px 5px; border-top: 1px solid var(--line); border-left: 1px solid var(--line); }
+    .service-row > div:first-child { border-left: 0; }
+    .service-description { text-transform: uppercase; }
+    .period-value { display: block; min-height: 17px; background: var(--yellow); text-align: center; font-weight: 700; }
+    .amount-cell { text-align: right; font-weight: 700; }
+ 
+    .summary-row { display: grid; grid-template-columns: 1fr; min-height: 101px; }
+    .total-box { border-top: 1px solid var(--line); }
+    .total-line { display: grid; grid-template-columns: 1fr 120px; min-height: 18px; background: var(--pale-blue); border-bottom: 1px solid #9ab1cd; font-weight: 700; }
+    .total-line:last-child { border-bottom: 0; }
+    .total-line span { padding: 2px 7px; }
+    .total-line span:last-child { text-align: right; }
+ 
+    .words-row { min-height: 28px; padding: 5px; border-top: 1px solid var(--line); }
+    .words-row strong { display: block; }
+    .words-value { padding-top: 2px; }
+    .bottom-row { display: grid; grid-template-columns: 53.5% 46.5%; min-height: 117px; border-top: 1px solid var(--line); }
+    .notes { padding: 4px 5px; }
+    .notes strong { display: block; margin-bottom: 4px; }
+    .note-yellow { margin: 2px -5px; padding: 1px 5px; background: var(--yellow); }
+    .note-space { min-height: 35px; border-top: 1px solid #abc2dc; margin: 5px -5px -4px; }
+    .signature { display: grid; grid-template-columns: 1fr 1fr; padding: 0; border-left: 1px solid var(--line); background: var(--yellow); }
+    .signature-column { position: relative; min-height: 116px; padding: 7px 9px 24px; text-align: center; }
+    .signature-column + .signature-column { border-left: 1px solid #bd9e00; }
+    .signature-company, .receiver-signature-title { min-height: 21px; text-align: left; font-weight: 700; }
+    .signature-line, .receiver-signature-line { width: 82%; margin: 0 auto 23px; border-bottom: 1px dashed #333; }
+    .receiver-signature-line { margin-top: 20px; }
+    .signer-name, .receiver-signature-name { min-height: 19px; margin-bottom: 3px; font-weight: 700; }
+    .signer-designation { margin-top: 2px; font-size: 9px; }
+    .signature-caption { position: absolute; right: 8px; bottom: 7px; left: 8px; font-size: 9px; }
+    .issued-message { margin: 9px 0 0; min-height: 16px; color: #4c6275; font-size: 12px; text-align: center; }
+ 
+    @media (max-width: 1120px) {
+      .app-shell { grid-template-columns: 1fr; }
+      .control-panel { position: static; }
+    }
+    @media (max-width: 780px) {
+      .app-shell { width: min(100% - 18px, 1420px); margin-top: 9px; gap: 14px; }
+      .control-panel { padding: 16px; }
+      .preview-heading { align-items: flex-start; flex-direction: column; }
+      .bill-sheet { transform-origin: top left; }
+      .preview-wrap { overflow-x: auto; padding-bottom: 10px; }
+    }
+    @page { size: A4; margin: 0; }
+    @media print {
+      html, body { width: 210mm; height: 297mm; background: #fff; }
+      .no-print, .control-panel, .preview-heading, .issued-message { display: none !important; }
+      .app-shell { display: block; width: auto; margin: 0; }
+      .preview-wrap { overflow: visible; }
+      .bill-sheet {
+        width: 210mm;
+        height: 297mm;
+        min-height: 0;
+        margin: 0;
+        padding: 12mm 12mm 16mm;
+        overflow: hidden;
+        break-inside: avoid;
+        page-break-inside: avoid;
+        box-shadow: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="app-shell">
+    <aside class="control-panel no-print" aria-label="Rent bill details">
+      <h1 class="panel-heading">Rent Bill Generator</h1>
+      <p class="panel-subtitle">Fill in the bill details, then generate, print, or download a PDF.</p>
+ 
+      <form id="billForm" autocomplete="off">
+        <section class="form-section">
+          <h2>Payee / money receiver</h2>
+          <div class="field"><label for="receiverName">Money receiver / payee name</label><input id="receiverName" value=""></div>
+          <div class="field"><label for="receiverAddress">Receiver address</label><textarea id="receiverAddress" placeholder="Enter receiver address"></textarea></div>
+          <div class="field-row">
+            <div class="field"><label for="pan">PAN number</label><input id="pan" value=""></div>
+            <div class="field"><label for="mobile">Mobile number</label><input id="mobile" inputmode="tel" value=""></div>
+          </div>
+          <div class="field"><label for="email">Email address <small>(optional)</small></label><input id="email" type="email" value=""></div>
+          <div class="field"><label for="gstin">GSTIN <small>(optional)</small></label><input id="gstin" value=""></div>
+        </section>
+ 
+        <section class="form-section">
+          <h2>Payer & property</h2>
+          <div class="field"><label for="companyName">Payer company / bill-to name</label><input id="companyName" value="GREAT EASTERN TRADING CO."></div>
+          <div class="field"><label for="companyAddress">Payer company address</label><textarea id="companyAddress" placeholder="Leave blank to write the address by hand"></textarea></div>
+          <div class="field"><label for="propertyAddress">Location of property / showroom address</label><textarea id="propertyAddress" placeholder="Leave blank to write the property address by hand"></textarea></div>
+        </section>
+ 
+        <section class="form-section">
+          <h2>Rent & tax</h2>
+          <div class="field-row">
+            <div class="field"><label for="periodFrom">Period from</label><input id="periodFrom" type="date"></div>
+            <div class="field"><label for="periodTo">Period to</label><input id="periodTo" type="date"></div>
+          </div>
+          <div class="field"><label for="rent">Base rent (₹)</label><input id="rent" type="number" min="0" step="0.01" inputmode="decimal" value="90500"></div>
+          <div class="field"><label for="gstMode">GST type</label><select id="gstMode"><option value="none">No GST</option><option value="cgst-sgst">CGST + SGST</option><option value="igst">IGST</option></select></div>
+          <div class="field"><label for="gstRate">Total GST rate (%)</label><select id="gstRate"><option value="0">0%</option><option value="5">5%</option><option value="12">12%</option><option value="18">18%</option><option value="28">28%</option></select></div>
+        </section>
+ 
+        <section class="form-section">
+          <h2>Authorisation</h2>
+          <div class="field"><label for="signerName">Signing person's name</label><input id="signerName" value=""></div>
+          <div class="field"><label for="designation">Designation</label><input id="designation" value=""></div>
+        </section>
+ 
+        <div class="actions">
+          <button id="generateButton" type="button">Generate bill</button>
+          <button id="printButton" class="secondary" type="button">Print bill</button>
+          <button id="pdfButton" class="secondary" type="button">Download PDF</button>
+          <button id="resetButton" class="danger" type="button">Reset bill number sequence</button>
+        </div>
+        <p id="sequenceNote" class="sequence-note"></p>
+      </form>
+    </aside>
+ 
+    <section class="preview-wrap" aria-label="Bill preview">
+      <div class="preview-heading no-print">
+        <h1>Live bill preview</h1>
+        <span id="draftBadge" class="draft-badge">Not generated</span>
+      </div>
+ 
+      <article id="billSheet" class="bill-sheet">
+        <div class="bill">
+          <div class="bill-title">Rent Bill</div>
+          <div class="bill-grid">
+            <section class="cell receiver">
+              <div class="receiver-name"><span>Name:</span> <span id="pReceiverName" class="preview-value"></span></div>
+              <div class="field-line address-line"><span class="field-label">Address:</span><span id="pReceiverAddress" class="preview-value blank-line"></span></div>
+              <div class="receiver-contact">
+                <div class="field-line"><span class="field-label">PAN No.:</span><span id="pPan" class="preview-value"></span></div>
+                <div class="field-line"><span class="field-label">Mobile No.:</span><span id="pMobile" class="preview-value"></span></div>
+                <div class="field-line email-line"><span class="field-label">Email Address:</span><span id="pEmail" class="preview-value"></span></div>
+                <div class="field-line gstin-line"><span class="field-label">GST Tin No.:</span><span id="pGstin" class="preview-value"></span></div>
+              </div>
+            </section>
+            <section class="cell bill-meta">
+              <div class="bill-meta-head"><span>BILL NO.</span><span>DATE</span></div>
+              <div class="bill-meta-data"><span id="pBillNo">01/2026</span><span id="pDate"></span></div>
+            </section>
+          </div>
+ 
+          <div class="bill-grid party-area">
+            <section class="cell party-cell">
+              <span class="bar-title">BILL TO / PAID BY:</span>
+              <div id="pCompanyName" class="party-name">GREAT EASTERN hire purchase private limited</div>
+              <div class="party-copy">(A UNIT OF GREAT EASTERN HIRE PURCHASE PVT. LTD.)</div>
+              <div class="party-copy"><strong>Address:20, Old Court House Street, 5th Floor, kolkata-700001</strong> <span id="pCompanyAddress" class="preview-value blank-line"></span></div>
+              <div class="party-copy">PAN: AABCG1740K</div>
+              <div class="party-copy">Phone No.: 8584308199</div>
+              <div class="party-copy">Email Address: greateasterntradingco.accounts@yahoo.com</div>
+              <div class="party-copy">GST Tin No.: 19AABCG1740K1ZM</div>
+            </section>
+            <section class="cell party-cell">
+              <span class="bar-title property-title">LOCATION OF THE PROPERTY:</span>
+              <div class="party-copy"><strong>Address:</strong></div>
+              <div id="pPropertyAddress" class="property-address preview-value"></div>
+            </section>
+          </div>
+ 
+          <div class="service-header">
+            <div>DESCRIPTION</div><div>HSN Code</div><div>Period From</div><div>Period To</div><div>AMOUNT</div>
+          </div>
+          <div class="service-row">
+            <div id="pDescription" class="service-description">TO SERVICE IN RESPECT OF SHOWROOM SITUATED AT SERPUR, CONTAI</div>
+            <div>997212</div>
+            <div><span id="pPeriodFrom" class="period-value"></span></div>
+            <div><span id="pPeriodTo" class="period-value"></span></div>
+            <div id="pRent" class="amount-cell">₹90,500.00</div>
+          </div>
+ 
+          <div class="summary-row">
+            <div class="total-box">
+              <div class="total-line"><span>SUBTOTAL</span><span id="pSubtotal"></span></div>
+              <div class="total-line"><span>SGST @ <span id="pSgstRate"></span></span><span id="pSgst"></span></div>
+              <div class="total-line"><span>CGST @ <span id="pCgstRate"></span></span><span id="pCgst"></span></div>
+              <div class="total-line"><span>IGST @ <span id="pIgstRate"></span></span><span id="pIgst"></span></div>
+              <div class="total-line"><span>TOTAL</span><span id="pTotal"></span></div>
+            </div>
+          </div>
+ 
+          <div class="words-row"><strong>Amount Chargeable (in words):</strong><div id="pWords" class="words-value"></div></div>
+          <div class="bottom-row">
+            <section class="notes">
+              <strong>Note:</strong>
+              <div class="note-yellow">- Please make cheques in favor of <span id="pChequeName"></span></div>
+              <div class="note-yellow">- Our PAN No.: <span id="pNotePan"></span></div>
+              <div class="note-space"></div>
+            </section>
+            <section class="signature">
+              <div class="signature-column">
+                <div class="signature-company">For <span id="pSignatureCompany"></span></div>
+                <div class="signature-line"></div>
+                <div id="pSignerName" class="signer-name"></div>
+                <div id="pDesignation" class="signer-designation"></div>
+                <div class="signature-caption">Authorised Signatory</div>
+              </div>
+              <div class="signature-column">
+                <div class="receiver-signature-title">Received by: <span id="pReceiverSignatureName"></span></div>
+                <div class="receiver-signature-line"></div>
+                <div class="signature-caption">Receiver's Signature</div>
+              </div>
+            </section>
+          </div>
+        </div>
+      </article>
+      <p id="issuedMessage" class="issued-message no-print" aria-live="polite"></p>
+    </section>
+  </main>
+ 
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script>
+    (() => {
+      'use strict';
+ 
+      const DEFAULT_RENT = 90500;
+      const SEQUENCE_KEY = 'rentBillSequenceV1';
+      const $ = (id) => document.getElementById(id);
+      const formIds = ['receiverName', 'receiverAddress', 'pan', 'mobile', 'email', 'gstin', 'companyName', 'companyAddress', 'propertyAddress', 'periodFrom', 'periodTo', 'rent', 'gstMode', 'gstRate', 'signerName', 'designation'];
+      let issued = false;
+      let issuedNumber = '';
+      let issuedDate = '';
+ 
+      function todayDate() {
+        const now = new Date();
+        return { year: now.getFullYear(), date: now };
+      }
+ 
+      function toISO(d) {
+        return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+      }
+ 
+      function formatPeriodDate(value) {
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(value || '')) return '';
+        const [y, m, d] = value.split('-');
+        return d + '.' + m + '.' + y;
+      }
+ 
+      // The sequence resets automatically the moment the real calendar
+      // year changes (readSequence falls back to {year, next: 1} whenever
+      // the stored year no longer matches this year, so Jan of a new year
+      // starts at 01 again). It can also be reset manually at any time
+      // with the "Reset bill number sequence" button.
+      function readSequence() {
+        const { year } = todayDate();
+        try {
+          const saved = JSON.parse(localStorage.getItem(SEQUENCE_KEY));
+          if (saved && saved.year === year && Number.isInteger(saved.next) && saved.next > 0) return saved;
+        } catch (_) { /* A malformed stored value safely starts a new sequence. */ }
+        return { year, next: 1 };
+      }
+ 
+      function numberFor(sequence) {
+        return String(sequence.next).padStart(2, '0') + '/' + sequence.year;
+      }
+ 
+      function saveNext(sequence) {
+        localStorage.setItem(SEQUENCE_KEY, JSON.stringify({ year: sequence.year, next: sequence.next + 1 }));
+      }
+ 
+      function dateLabel(date) {
+        return new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(date);
+      }
+ 
+      function money(value) {
+        return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 2 }).format(value);
+      }
+ 
+      function getBaseRent() {
+        const rawValue = $('rent').value.trim();
+        const value = Number(rawValue);
+        return rawValue !== '' && Number.isFinite(value) && value >= 0 ? value : DEFAULT_RENT;
+      }
+ 
+      function getTaxes() {
+        const rentAmount = getBaseRent();
+        const rate = Number($('gstRate').value) || 0;
+        const mode = $('gstMode').value;
+        let sgst = 0, cgst = 0, igst = 0;
+        if (mode === 'cgst-sgst') { sgst = rentAmount * rate / 200; cgst = rentAmount * rate / 200; }
+        if (mode === 'igst') igst = rentAmount * rate / 100;
+        return { rentAmount, rate, sgst, cgst, igst, total: rentAmount + sgst + cgst + igst };
+      }
+ 
+      function underlined(value) { return value || ''; }
+      function setText(id, value) { $(id).textContent = value; }
+      function numberToWords(value) {
+        const small = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
+        const tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+        const two = (n) => n < 20 ? small[n] : tens[Math.floor(n / 10)] + (n % 10 ? ' ' + small[n % 10] : '');
+        const three = (n) => n >= 100 ? small[Math.floor(n / 100)] + ' Hundred' + (n % 100 ? ' ' + two(n % 100) : '') : two(n);
+        if (!value) return 'Rupees Zero Only';
+        const crore = Math.floor(value / 10000000); value %= 10000000;
+        const lakh = Math.floor(value / 100000); value %= 100000;
+        const thousand = Math.floor(value / 1000); value %= 1000;
+        const parts = [];
+        if (crore) parts.push(two(crore) + ' Crore');
+        if (lakh) parts.push(two(lakh) + ' Lakh');
+        if (thousand) parts.push(two(thousand) + ' Thousand');
+        if (value) parts.push(three(value));
+        return 'Rupees ' + parts.join(' ') + ' Only';
+      }
+ 
+      function currentBillNumber() { return issuedNumber || numberFor(readSequence()); }
+      function currentBillDate() { return issuedDate || dateLabel(todayDate().date); }
+ 
+      function render() {
+        const data = Object.fromEntries(formIds.map((id) => [id, $(id).value.trim()]));
+        const tax = getTaxes();
+        const blankProperty = data.propertyAddress || '';
+        setText('pReceiverName', underlined(data.receiverName));
+        setText('pReceiverAddress', underlined(data.receiverAddress));
+        setText('pPan', underlined(data.pan));
+        setText('pMobile', underlined(data.mobile));
+        setText('pEmail', underlined(data.email));
+        setText('pGstin', underlined(data.gstin));
+        setText('pCompanyName', data.companyName || 'GREAT EASTERN TRADING CO.');
+        setText('pCompanyAddress', underlined(data.companyAddress));
+        setText('pPropertyAddress', blankProperty);
+        setText('pBillNo', currentBillNumber());
+        setText('pDate', currentBillDate());
+        setText('pPeriodFrom', formatPeriodDate(data.periodFrom));
+        setText('pPeriodTo', formatPeriodDate(data.periodTo));
+        setText('pRent', money(tax.rentAmount));
+        setText('pSubtotal', money(tax.rentAmount));
+        setText('pSgstRate', tax.sgst ? (tax.rate / 2) + '%' : '0%');
+        setText('pCgstRate', tax.cgst ? (tax.rate / 2) + '%' : '0%');
+        setText('pIgstRate', tax.igst ? tax.rate + '%' : '0%');
+        setText('pSgst', money(tax.sgst));
+        setText('pCgst', money(tax.cgst));
+        setText('pIgst', money(tax.igst));
+        setText('pTotal', money(tax.total));
+        setText('pWords', numberToWords(Math.round(tax.total)));
+        setText('pChequeName', data.receiverName || '________________');
+        setText('pNotePan', data.pan || '________________');
+        setText('pSignatureCompany', data.receiverName || '________________');
+        setText('pReceiverSignatureName', data.receiverName || '________________');
+        setText('pSignerName', data.signerName || '');
+        setText('pDesignation', data.designation || '');
+        $('draftBadge').textContent = issued ? 'Generated • ' + currentBillNumber() : 'Not generated';
+        $('sequenceNote').innerHTML = issued ? '<strong>Bill ' + currentBillNumber() + '</strong> has been reserved. The next bill will be ' + numberFor(readSequence()) + '.' : 'The next bill number is <strong>' + numberFor(readSequence()) + '</strong>. It is reserved only when you generate, print, or download.';
+      }
+ 
+      function ensureIssued() {
+        if (issued) return;
+        const sequence = readSequence();
+        issuedNumber = numberFor(sequence);
+        issuedDate = dateLabel(todayDate().date);
+        saveNext(sequence);
+        issued = true;
+        render();
+        $('issuedMessage').textContent = 'Generated ' + issuedNumber + '. The next bill number has been saved in this browser.';
+      }
+ 
+      function resetSequence() {
+        const confirmed = window.confirm('Reset the bill number sequence back to 01/' + todayDate().year + '? This clears the saved numbering in this browser.');
+        if (!confirmed) return;
+        localStorage.removeItem(SEQUENCE_KEY);
+        issued = false;
+        issuedNumber = '';
+        issuedDate = '';
+        render();
+        $('issuedMessage').textContent = 'Sequence reset. The next bill will be ' + numberFor(readSequence()) + '.';
+      }
+ 
+      // The PDF is built by photographing the exact on-screen bill sheet
+      // (#billSheet) and dropping that image into an A4 page. Whatever
+      // text, address, or wrapping you see in the live preview is exactly
+      // what ends up in the downloaded PDF - nothing is re-typed or
+      // re-laid-out separately, so nothing can go missing or mismatch.
+      async function buildPdf() {
+        const sheet = $('billSheet');
+        const canvas = await html2canvas(sheet, {
+          scale: 2,
+          useCORS: true,
+          backgroundColor: '#ffffff',
+          windowWidth: sheet.scrollWidth,
+          windowHeight: sheet.scrollHeight
+        });
+        const imgData = canvas.toDataURL('image/jpeg', 0.95);
+        const { jsPDF } = window.jspdf;
+        const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
+        pdf.addImage(imgData, 'JPEG', 0, 0, 210, 297, undefined, 'FAST');
+        return pdf;
+      }
+ 
+      async function downloadPdf() {
+        ensureIssued();
+        const button = $('pdfButton');
+        const originalLabel = button.textContent;
+        button.disabled = true;
+        button.textContent = 'Preparing PDF\u2026';
+        try {
+          const pdf = await buildPdf();
+          pdf.save('rent-bill-' + currentBillNumber().replace('/', '-') + '.pdf');
+          $('issuedMessage').textContent = 'PDF downloaded for bill ' + currentBillNumber() + '.';
+        } catch (err) {
+          $('issuedMessage').textContent = 'Could not generate the PDF. Please try again.';
+        } finally {
+          button.disabled = false;
+          button.textContent = originalLabel;
+        }
+      }
+ 
+ 
+      const initial = todayDate().date;
+      const periodFromDefault = new Date(initial.getFullYear(), initial.getMonth(), 15);
+      const periodToDefault = new Date(initial.getFullYear(), initial.getMonth() + 1, 0);
+      $('periodFrom').value = toISO(periodFromDefault);
+      $('periodTo').value = toISO(periodToDefault);
+      formIds.forEach((id) => $(id).addEventListener('input', render));
+      $('gstMode').addEventListener('change', render);
+      $('gstRate').addEventListener('change', render);
+      $('generateButton').addEventListener('click', ensureIssued);
+      $('printButton').addEventListener('click', () => { ensureIssued(); window.print(); });
+      $('pdfButton').addEventListener('click', downloadPdf);
+      $('resetButton').addEventListener('click', resetSequence);
+      render();
+    })();
+  </script>
+</body>
+</html>
